@@ -10,6 +10,8 @@ WORKDIR /code
 COPY . /code/
 # Install dependencies
 RUN pip install --no-cache-dir -r requirements.txt
+# Install Gunicorn
+RUN pip install gunicorn
 # Expose port 8000
 EXPOSE 8000
 # Start the application with Gunicorn
