@@ -26,11 +26,10 @@ SECRET_KEY = os.getenv('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = bool(int(os.getenv('DEBUG')))
-BASE_DOMAIN = os.getenv('BASE_DOMAIN')
+BASE_DOMAIN = os.getenv('bot.sado24.com')
 BASE_URL = f"https://{BASE_DOMAIN}"
 
-ALLOWED_HOSTS = [BASE_DOMAIN, ]
-
+ALLOWED_HOSTS = ['bot.sado24.com', '46.250.228.30:4002']
 
 # Application definition
 
