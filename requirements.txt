@@ -13,12 +13,15 @@ idna
 inflection
 openpyxl
 packaging
+psycopg2-binary
 pycryptodome
 pyTelegramBotAPI
 python-dotenv
 pytz
 PyYAML
 requests
+six
 sqlparse
+transliterate
 uritemplate
 urllib3
