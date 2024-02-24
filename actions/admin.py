@@ -35,3 +35,23 @@ class SubscriptionAdmin(AbstractModelAdmin):
         'user',
         'podcast',
     ]
+
+
+@admin.register(models.SearchQuery)
+class SearchQueryAdmin(AbstractModelAdmin):
+    list_display = [
+        'id',
+        'original_query',
+        'latin_query',
+        'cyrillic_query',
+        'usages_count',
+    ]
+    list_filter = [
+        'usages_count',
+    ]
+    search_fields = [
+        'id',
+        'original_query',
+        'latin_query',
+        'cyrillic_query'
+    ]

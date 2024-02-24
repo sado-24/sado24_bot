@@ -28,6 +28,7 @@ class UserAdmin(AbstractModelAdmin):
         'is_moderator',
         'is_admin',
         'is_active',
+        'is_banned',
         'step',
     ]
     list_filter = [
@@ -36,6 +37,7 @@ class UserAdmin(AbstractModelAdmin):
         'is_moderator',
         'is_admin',
         'is_active',
+        'is_banned',
         'step',
     ]
     search_fields = [

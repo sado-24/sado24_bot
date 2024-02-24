@@ -1,6 +1,10 @@
+from threading import Thread
+
 from admin_auto_filters.filters import AutocompleteFilter
 from django.contrib import admin, messages
 
+from bot.utils import helpers
+from bot.views import bot
 from configurations.abstracts import AbstractModelAdmin
 from contents import models
 
@@ -74,7 +78,6 @@ class EpisodeAdmin(AbstractModelAdmin):
         'podcast',
         'name',
         'description',
-        'timelapse',
         'url',
         'file_id',
         'duration',
@@ -101,6 +104,23 @@ class EpisodeAdmin(AbstractModelAdmin):
     autocomplete_fields = [
         'podcast',
     ]
+    filter_horizontal = [
+        'liked_users',
+    ]
+    actions = [
+        'notifying_all_subscribed_users_about_new_episode'
+    ]
+
+    @admin.action(description="Notifying all subscribed users about new episode.")
+    def notifying_all_subscribed_users_about_new_episode(self, request, queryset):
+        episode = queryset.first()
+        thread = Thread(target=helpers.sending_new_episode_notification_to_subscribers, args=(bot, episode))
+        thread.start()
+        self.message_user(
+            request,
+            message=f"Notifying all users about new episode ID{episode.id} started.",
+            level=messages.SUCCESS,
+        )
 
     def save_model(self, request, obj: models.Episode, form, change):
         if obj.url or obj.file_id:

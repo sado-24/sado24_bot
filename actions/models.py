@@ -22,4 +22,19 @@ class Subscription(AbstractModel):
         return f"{self.user}'s subscription to {self.podcast}"
 
     class Meta:
-        ordering = ('added_time', )
+        ordering = ('-id', )
+
+
+class SearchQuery(AbstractModel):
+    original_query = models.TextField()
+    latin_query = models.TextField()
+    cyrillic_query = models.TextField()
+    usages_count = models.IntegerField(
+        default=1,
+    )
+
+    def __str__(self):
+        return f"{self.original_query} ({self.usages_count:,} times)"
+
+    class Meta:
+        ordering = ('-usages_count', '-id', )

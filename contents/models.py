@@ -1,15 +1,15 @@
+from django.contrib.postgres.search import SearchVector, SearchQuery, SearchRank
 from django.db import models
 
 from configurations.abstracts import AbstractModel
-from configurations.utils import get_channel_image_path, get_podcast_image_path, get_collection_image_path
 
 
 class Channel(AbstractModel):
     name = models.CharField(
         max_length=127,
     )
-    image = models.ImageField(
-        upload_to=get_channel_image_path,
+    image = models.URLField(
+        help_text="URL to the image",
     )
     is_active = models.BooleanField(
         default=False,
@@ -19,7 +19,7 @@ class Channel(AbstractModel):
         return self.name
 
     class Meta:
-        ordering = ('added_time', )
+        ordering = ('-id', )
 
 
 class Podcast(AbstractModel):
@@ -35,8 +35,8 @@ class Podcast(AbstractModel):
         null=True,
         blank=True,
     )
-    image = models.ImageField(
-        upload_to=get_podcast_image_path,
+    image = models.URLField(
+        help_text="URL to the image",
     )
     categories = models.ManyToManyField(
         'classifiers.Category',
@@ -50,7 +50,7 @@ class Podcast(AbstractModel):
         return f"{self.name} ({self.channel})"
 
     class Meta:
-        ordering = ('added_time', )
+        ordering = ('-id', )
 
 
 class Episode(AbstractModel):
@@ -60,15 +60,17 @@ class Episode(AbstractModel):
         related_name='episodes',
     )
     name = models.CharField(
-        max_length=255,
+        max_length=127,
     )
     description = models.TextField(
         null=True,
         blank=True,
+        max_length=897,
     )
     timelapse = models.TextField(
         null=True,
         blank=True,
+        max_length=1023,
     )
     url = models.URLField(
         null=True,
@@ -90,15 +92,39 @@ class Episode(AbstractModel):
     total_likes_count = models.PositiveIntegerField(
         default=0,
     )
+    liked_users = models.ManyToManyField(
+        'basics.User',
+        related_name='liked_episodes',
+        blank=True,
+    )
     is_active = models.BooleanField(
         default=False,
     )
+
+    @classmethod
+    def filter_by_search_query(cls, search_query):
+        vector = SearchVector(
+            'name',
+            weight='B',
+        ) + SearchVector(
+            'podcast__name',
+            weight='C',
+        ) + SearchVector(
+            'podcast__channel__name',
+            weight='D',
+        )
+        query = SearchQuery(search_query.latin_query) | SearchQuery(search_query.cyrillic_query)
+        return cls.objects.filter(is_active=True).annotate(
+            rank=SearchRank(vector, query),
+        ).filter(
+            rank__gt=0,
+        ).order_by('-rank')
 
     def __str__(self):
         return f"{self.name} [{self.podcast}]"
 
     class Meta:
-        ordering = ('added_time', )
+        ordering = ('-total_listens_count', '-total_likes_count', '-id', )
 
 
 class Collection(AbstractModel):
@@ -106,8 +132,8 @@ class Collection(AbstractModel):
     name = models.CharField(
         max_length=127,
     )
-    image = models.ImageField(
-        upload_to=get_collection_image_path,
+    image = models.URLField(
+        help_text="URL to the image",
     )
     podcasts = models.ManyToManyField(
         Podcast,

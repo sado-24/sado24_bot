@@ -49,3 +49,23 @@ class CategoryAdmin(AbstractModelAdmin):
         'name',
         'is_active',
     ]
+
+
+@admin.register(models.Constant)
+class ConstantAdmin(AbstractModelAdmin):
+    list_display = [
+        'id',
+        'key',
+        'data',
+    ]
+    list_filter = [
+        'key',
+    ]
+    search_fields = [
+        'id',
+        'data',
+    ]
+    list_editable = [
+        'key',
+        'data',
+    ]
