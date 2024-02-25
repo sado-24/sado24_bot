@@ -13,6 +13,13 @@ RUN pip install --upgrade pip
 RUN pip install --no-cache-dir -r requirements.txt
 # Install Gunicorn
 RUN pip install gunicorn
+RUN python3 manage.py createsuperuser
+
+RUN mkdir -p /code/staticfiles
+VOLUME /code/static
+
+RUN python manage.py collectstatic --noinput --clear
+
 # Expose port 8000
 EXPOSE 8000
 # Start the application with Gunicorn
