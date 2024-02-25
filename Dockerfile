@@ -8,8 +8,8 @@ WORKDIR /code
 COPY . /code/
 
 # Install dependencies
-RUN pip install --upgrade pip
-RUN pip install --no-cache-dir -r requirements.txt
+# RUN pip install --upgrade pip
+RUN pip install -r requirements.txt
 
 # Install Gunicorn
 RUN pip install gunicorn
