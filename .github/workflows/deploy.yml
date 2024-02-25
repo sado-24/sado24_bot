@@ -65,8 +65,7 @@ jobs:
             docker run -d \
                 --name "${{ env.CONTAINER_NAME }}" \
                 -p "${{ env.PORT }}" \
-                --mount source=django_static_volume,target=/mnt/static \
-                --mount source=django_static_volume,target=/code/static \
+                -v /mnt/static:/code/static \
                 "${{ env.REGISTRY }}/${{ env.REPO_NAME }}:${{ github.sha }}" \
 
             # docker cp .env "${{ env.CONTAINER_NAME }}":/code/.env
