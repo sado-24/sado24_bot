@@ -69,5 +69,5 @@ jobs:
                 --mount source=django_static_volume,target=/code/static \
                 "${{ env.REGISTRY }}/${{ env.REPO_NAME }}:${{ github.sha }}" \
 
-            docker cp .env "${{ env.CONTAINER_NAME }}":/code/.env
-            docker restart "${{ env.CONTAINER_NAME }}"
+            # docker cp .env "${{ env.CONTAINER_NAME }}":/code/.env
+            # docker restart "${{ env.CONTAINER_NAME }}"
