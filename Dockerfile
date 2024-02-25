@@ -20,6 +20,9 @@ RUN mkdir -p /mnt/static
 # Collect static files
 RUN python manage.py collectstatic --noinput --clear
 
+RUN python manage.py makemigrations
+RUN python manage.py migrate
+
 EXPOSE 8000
 
 CMD ["gunicorn", "--bind", "0.0.0.0:8000", "configurations.wsgi:application"]
