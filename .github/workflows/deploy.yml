@@ -24,7 +24,15 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-
+      - name: GEt config files
+        uses: actions/checkout@v3
+        with:
+          repository: sado24/secrets
+          path: tmp
+          ref: refs/heads/main
+          token: ${{ secrets.ORG_CLONE_TOKEN }} # bu joyga bitta secret yaratib shunga quyasan repo secret uzingni tokening ham buladi 
+      - name: apply configuration
+        run: cat tmp/.env > .env
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
