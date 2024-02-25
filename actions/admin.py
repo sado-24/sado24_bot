@@ -36,6 +36,11 @@ class SubscriptionAdmin(AbstractModelAdmin):
         'podcast',
     ]
 
+    def lookup_allowed(self, lookup, value, request=None):
+        if lookup in ['user__pk__exact', 'podcast__pk__exact']:
+            return True
+        return super().lookup_allowed(lookup, value, request)
+
 
 @admin.register(models.SearchQuery)
 class SearchQueryAdmin(AbstractModelAdmin):

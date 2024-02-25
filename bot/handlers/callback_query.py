@@ -1,11 +1,13 @@
 import sys
 import traceback
+
+from django.db.models import Count, Q
 from telebot import types, TeleBot
 from telebot.apihelper import ApiException
 
 from actions.models import SearchQuery, Subscription
 from bot.utils import keyboards, helpers
-from classifiers.models import Text
+from classifiers.models import Text, Category
 from configurations.constants import CALLBACK, ERROR
 from basics.models import User, Error
 from contents.models import Episode, Podcast, Collection, Channel
@@ -18,7 +20,14 @@ def initializer_callback_query_handlers(bot: TeleBot):
         def select_the_text(user: User, query: types.CallbackQuery, message: types.Message, text_id: int):
             try:
                 text = Text.objects.get(id=text_id)
-                if not user.text:
+                is_new_user = True if not user.text else False
+                user.text = text
+                user.save()
+                bot.delete_message(
+                    message.chat.id,
+                    message.message_id,
+                )
+                if is_new_user:
                     bot.send_message(
                         message.chat.id,
                         text.hello_text.format(
@@ -26,8 +35,6 @@ def initializer_callback_query_handlers(bot: TeleBot):
                         ),
                         reply_markup=keyboards.reply_keyboard_remove,
                     )
-                user.text = text
-                user.save()
                 bot.send_message(
                     message.chat.id,
                     user.text.main_text.format(
@@ -38,15 +45,109 @@ def initializer_callback_query_handlers(bot: TeleBot):
                     ),
                     reply_markup=keyboards.reply_keyboard_remove,
                 )
-                bot.delete_message(
-                    message.chat.id,
-                    message.message_id,
-                )
+                if is_new_user:
+                    bot.send_message(
+                        message.chat.id,
+                        user.text.selecting_interested_categories,
+                        reply_markup=keyboards.get_interested_categories_inline_keyboard(
+                            user,
+                            list(user.interested_categories.values_list('id', flat=True)),
+                        ),
+                    )
                 helpers.reset_commands(bot, user)
             except Episode.DoesNotExist:
                 bot.answer_callback_query(
                     query.id,
                     "🤷🏻‍♂️",
+                )
+
+        def change_the_category_interested_state(user: User, query: types.CallbackQuery, message: types.Message, category_id: int):
+            try:
+                category = Category.objects.get(id=category_id)
+                interested_categories = list(user.interested_categories.values_list('id', flat=True))
+                if category_id in interested_categories:
+                    user.interested_categories.remove(category)
+                    interested_categories.remove(category_id)
+                else:
+                    user.interested_categories.add(category_id)
+                    interested_categories.append(category_id)
+                bot.edit_message_reply_markup(
+                    message.chat.id,
+                    message.message_id,
+                    reply_markup=keyboards.get_interested_categories_inline_keyboard(user, interested_categories),
+                )
+            except Episode.DoesNotExist:
+                bot.answer_callback_query(
+                    query.id,
+                    "🤷🏻‍♂️",
+                )
+
+        def select_top_episodes_page(user: User, query: types.CallbackQuery, message: types.Message, page: int):
+            episodes = Episode.objects.filter(is_active=True).annotate(
+                matched_interested_categories_count=Count(
+                    'podcast__categories',
+                    filter=Q(podcast__categories__in=user.interested_categories.all()),
+                    distinct=True,
+                ),
+            ).order_by('-matched_interested_categories_count', '-total_listens_count', '-total_likes_count', '-id')
+            total = episodes.count()
+            if total <= page * 10:
+                bot.answer_callback_query(
+                    query.id,
+                    user.text.you_already_in_the_last_page,
+                )
+            elif page < 1:
+                bot.answer_callback_query(
+                    query.id,
+                    user.text.you_already_in_the_first_page,
+                )
+            else:
+                start = (page - 1) * 10 + 1
+                end = page * 10 if total > page * 10 else total
+                bot.edit_message_text(
+                    user.text.top_text.format(
+                        total=total,
+                        start=start,
+                        end=end,
+                        episodes='\n'.join([
+                            f"{sequence}. {episode.name} <i>{episode.total_listens_count:,} 📥</i>"
+                            for sequence, episode in enumerate(episodes[start - 1:end], 1)
+                        ])
+                    ),
+                    message.chat.id,
+                    message.message_id,
+                    reply_markup=keyboards.get_top_episodes_inline_keyboard(user, episodes, start, end, page),
+                )
+
+        def select_newest_episodes_page(user: User, query: types.CallbackQuery, message: types.Message, page: int):
+            episodes = Episode.objects.filter(is_active=True).order_by('-added_time')
+            total = episodes.count()
+            if total <= page * 10:
+                bot.answer_callback_query(
+                    query.id,
+                    user.text.you_already_in_the_last_page,
+                )
+            elif page < 1:
+                bot.answer_callback_query(
+                    query.id,
+                    user.text.you_already_in_the_first_page,
+                )
+            else:
+                start = (page - 1) * 10 + 1
+                end = page * 10 if total > page * 10 else total
+                bot.edit_message_text(
+                    user.text.newest_text.format(
+                        total=total,
+                        start=start,
+                        end=end,
+                        episodes='\n'.join([
+                            f"{sequence}. {episode.name} <i>{episode.total_listens_count:,} 📥</i>"
+                            for sequence, episode in enumerate(episodes[start - 1:end], 1)
+                        ])
+                    ),
+                    message.chat.id,
+                    message.message_id,
+                    reply_markup=keyboards.get_newest_episodes_inline_keyboard(user, episodes, start, end, page),
                 )
 
         def select_subscriptions_page(user: User, query: types.CallbackQuery, message: types.Message, page: int):
@@ -67,7 +168,7 @@ def initializer_callback_query_handlers(bot: TeleBot):
                 end = page * 10 if total > page * 10 else total
                 bot.edit_message_text(
                     user.text.subscriptions_text.format(
-                        total=subscriptions.count(),
+                        total=total,
                         start=start,
                         end=end,
                         subscriptions='\n'.join([
@@ -121,13 +222,13 @@ def initializer_callback_query_handlers(bot: TeleBot):
                 bot.send_message(
                     message.chat.id,
                     user.text.the_collection_text.format(
-                        image=collection.image,
+                        image='',
                         name=collection.name,
                         podcasts='\n'.join([
                             f"{sequence}. {podcast.name}" for sequence, podcast in enumerate(podcasts[start - 1:end], 1)
                         ])
                     ),
-                    reply_markup=keyboards.get_the_collection_podcasts_inline_markup(user, collection, start, end),
+                    reply_markup=keyboards.get_the_collection_podcasts_inline_keyboard(user, collection, start, end),
                     link_preview_options=helpers.link_preview_options,
                 )
             except Podcast.DoesNotExist:
@@ -156,7 +257,7 @@ def initializer_callback_query_handlers(bot: TeleBot):
                     end = page * 10 if total > page * 10 else total
                     bot.edit_message_text(
                         user.text.the_collection_text.format(
-                            image=collection.image,
+                            image='',
                             name=collection.name,
                             podcasts='\n'.join([
                                 f"{sequence}. {podcast.name}"
@@ -165,7 +266,7 @@ def initializer_callback_query_handlers(bot: TeleBot):
                         ),
                         message.chat.id,
                         message.message_id,
-                        reply_markup=keyboards.get_the_collection_podcasts_inline_markup(
+                        reply_markup=keyboards.get_the_collection_podcasts_inline_keyboard(
                             user,
                             collection,
                             start,
@@ -221,13 +322,13 @@ def initializer_callback_query_handlers(bot: TeleBot):
                 bot.send_message(
                     message.chat.id,
                     user.text.the_channel_text.format(
-                        image=channel.image,
+                        image='',
                         name=channel.name,
                         podcasts='\n'.join([
                             f"{sequence}. {podcast.name}" for sequence, podcast in enumerate(podcasts[start - 1:end], 1)
                         ])
                     ),
-                    reply_markup=keyboards.get_the_channel_podcasts_inline_markup(user, channel, start, end),
+                    reply_markup=keyboards.get_the_channel_podcasts_inline_keyboard(user, channel, start, end),
                     link_preview_options=helpers.link_preview_options,
                 )
             except Podcast.DoesNotExist:
@@ -256,7 +357,7 @@ def initializer_callback_query_handlers(bot: TeleBot):
                     end = page * 10 if total > page * 10 else total
                     bot.edit_message_text(
                         user.text.the_channel_text.format(
-                            image=channel.image,
+                            image='',
                             name=channel.name,
                             podcasts='\n'.join([
                                 f"{sequence}. {podcast.name}"
@@ -265,7 +366,7 @@ def initializer_callback_query_handlers(bot: TeleBot):
                         ),
                         message.chat.id,
                         message.message_id,
-                        reply_markup=keyboards.get_the_channel_podcasts_inline_markup(user, channel, start, end, page),
+                        reply_markup=keyboards.get_the_channel_podcasts_inline_keyboard(user, channel, start, end, page),
                         link_preview_options=helpers.link_preview_options,
                     )
             except Podcast.DoesNotExist:
@@ -275,7 +376,13 @@ def initializer_callback_query_handlers(bot: TeleBot):
                 )
 
         def select_podcasts_page(user: User, query: types.CallbackQuery, message: types.Message, page: int):
-            podcasts = Podcast.objects.filter(is_active=True)
+            podcasts = Podcast.objects.filter(is_active=True).annotate(
+                matched_interested_categories_count=Count(
+                    'categories',
+                    filter=Q(categories__in=user.interested_categories.all()),
+                    distinct=True,
+                ),
+            ).order_by('-matched_interested_categories_count')
             total = podcasts.count()
             if page < 1:
                 bot.answer_callback_query(
@@ -316,15 +423,16 @@ def initializer_callback_query_handlers(bot: TeleBot):
                 bot.send_message(
                     message.chat.id,
                     user.text.the_podcast_text.format(
-                        image=podcast.image,
+                        image='',
                         name=podcast.name,
+                        channel=podcast.channel.name,
                         description=podcast.description,
                         episodes='\n'.join([
-                            f"{sequence}. {episode.name} <i>{episode.total_listens_count}</i>"
+                            f"{sequence}. {episode.name} <i>{episode.total_listens_count:,} 📥</i>"
                             for sequence, episode in enumerate(episodes[start - 1:end], 1)
                         ])
                     ),
-                    reply_markup=keyboards.get_the_podcast_episodes_inline_markup(
+                    reply_markup=keyboards.get_the_podcast_episodes_inline_keyboard(
                         user,
                         podcast,
                         subscription,
@@ -355,7 +463,11 @@ def initializer_callback_query_handlers(bot: TeleBot):
                 bot.edit_message_reply_markup(
                     message.chat.id,
                     message.message_id,
-                    reply_markup=keyboards.get_the_podcast_episodes_inline_markup(user, podcast, subscription, total, start, end, page),
+                    reply_markup=keyboards.get_the_podcast_episodes_inline_keyboard(user, podcast, subscription, total, start, end, page),
+                )
+                bot.answer_callback_query(
+                    query.id,
+                    user.text.you_have_subscribed if subscription else user.text.you_have_unsubscribed,
                 )
             except Podcast.DoesNotExist:
                 bot.answer_callback_query(
@@ -375,12 +487,52 @@ def initializer_callback_query_handlers(bot: TeleBot):
                     bot.edit_message_reply_markup(
                         message.chat.id,
                         message.message_id,
-                        reply_markup=keyboards.get_the_podcast_episodes_inline_markup(user, podcast, subscription, total, start, end, page),
+                        reply_markup=keyboards.get_the_podcast_episodes_inline_keyboard(user, podcast, subscription, total, start, end, page),
+                    )
+                    bot.answer_callback_query(
+                        query.id,
+                        user.text.you_have_enabled_notification if subscription.is_notification_enabled else user.text.you_have_disabled_notification,
                     )
                 except Subscription.DoesNotExist:
                     bot.answer_callback_query(
                         query.id,
                         user.text.podcast_not_found,
+                    )
+            except Podcast.DoesNotExist:
+                bot.answer_callback_query(
+                    query.id,
+                    user.text.podcast_not_found,
+                )
+
+        def download_all_episodes_of_the_podcast(user: User, query: types.CallbackQuery, message: types.Message, podcast_id: int):
+            try:
+                podcast = Podcast.objects.get(id=podcast_id)
+                episodes = podcast.episodes.filter(is_active=True).order_by('-added_time')
+                if episodes.count() > 1:
+                    medias = []
+                    for episode in episodes:
+                        medias.append(
+                            types.InputMediaAudio(
+                                episode.file_id,
+                                duration=episode.duration,
+                                performer=episode.podcast.channel.name,
+                                title=episode.name,
+                            )
+                        )
+                        episode.total_listens_count += 1
+                        episode.save()
+                    medias = [medias[i * 10:(i + 1) * 10] for i in range((len(medias) + 10 - 1) // 10)]
+                    for media in medias:
+                        bot.send_media_group(
+                            message.chat.id,
+                            media,
+                        )
+                elif episodes.count() == 1:
+                    select_the_episode(user, query, message, episodes.first().id)
+                else:
+                    bot.answer_callback_query(
+                        query.id,
+                        user.text.episode_not_found,
                     )
             except Podcast.DoesNotExist:
                 bot.answer_callback_query(
@@ -409,17 +561,17 @@ def initializer_callback_query_handlers(bot: TeleBot):
                     end = page * 10 if total > page * 10 else total
                     bot.edit_message_text(
                         user.text.the_podcast_text.format(
-                            image=podcast.image,
+                            image='',
                             name=podcast.name,
                             description=podcast.description,
                             episodes='\n'.join([
-                                f"{sequence}. {episode.name} <i>{episode.total_listens_count:,}</i>"
+                                f"{sequence}. {episode.name} <i>{episode.total_listens_count:,} 📥</i>"
                                 for sequence, episode in enumerate(episodes[start - 1:end], 1)
                             ])
                         ),
                         message.chat.id,
                         message.message_id,
-                        reply_markup=keyboards.get_the_podcast_episodes_inline_markup(user, podcast, subscription, total, start, end, page),
+                        reply_markup=keyboards.get_the_podcast_episodes_inline_keyboard(user, podcast, subscription, total, start, end, page),
                         link_preview_options=types.LinkPreviewOptions(
                             prefer_large_media=True,
                             show_above_text=True,
@@ -499,10 +651,17 @@ def initializer_callback_query_handlers(bot: TeleBot):
                     user.text.episode_not_found,
                 )
 
-        def like_it(user: User, query: types.CallbackQuery, message: types.Message, episode_id: int):
+        def change_the_episode_like_state(user: User, query: types.CallbackQuery, message: types.Message, episode_id: int, is_liked: int):
             try:
                 episode = Episode.objects.get(id=episode_id, file_id__isnull=False)
-                episode.liked_users.add(user)
+                if is_liked:
+                    episode.liked_users.remove(user)
+                    episode.total_likes_count -= 1
+                    is_liked = False
+                else:
+                    episode.liked_users.add(user)
+                    episode.total_likes_count += 1
+                    is_liked = True
                 bot.edit_message_reply_markup(
                     message.chat.id,
                     message.message_id,
@@ -510,33 +669,14 @@ def initializer_callback_query_handlers(bot: TeleBot):
                         user,
                         episode,
                         "<i>" not in message.html_caption,
-                        True,
+                        is_liked,
                     ),
                 )
-                episode.total_likes_count += 1
                 episode.save()
-            except Episode.DoesNotExist:
                 bot.answer_callback_query(
                     query.id,
-                    user.text.episode_not_found,
+                    user.text.you_liked_the_episode if is_liked else user.text.you_unliked_the_episode,
                 )
-
-        def unlike_it(user: User, query: types.CallbackQuery, message: types.Message, episode_id: int):
-            try:
-                episode = Episode.objects.get(id=episode_id, file_id__isnull=False)
-                episode.liked_users.remove(user)
-                bot.edit_message_reply_markup(
-                    message.chat.id,
-                    message.message_id,
-                    reply_markup=keyboards.get_the_episode_inline_keyboard(
-                        user,
-                        episode,
-                        "<i>" not in message.html_caption,
-                        False,
-                    ),
-                )
-                episode.total_likes_count -= 1
-                episode.save()
             except Episode.DoesNotExist:
                 bot.answer_callback_query(
                     query.id,
@@ -573,13 +713,13 @@ def initializer_callback_query_handlers(bot: TeleBot):
                             start=start,
                             end=end,
                             episodes='\n'.join([
-                                f"{sequence}. {episode.name} <i>{episode.total_listens_count:,}</i>"
+                                f"{sequence}. {episode.name} <i>{episode.total_listens_count:,} 📥</i>"
                                 for sequence, episode in enumerate(episodes[start - 1:end], 1)
                             ])
                         ),
                         message.chat.id,
                         message.message_id,
-                        reply_markup=keyboards.get_search_query_episodes_inline_markup(
+                        reply_markup=keyboards.get_search_query_episodes_inline_keyboard(
                             user,
                             search_query,
                             episodes,
@@ -602,53 +742,62 @@ def initializer_callback_query_handlers(bot: TeleBot):
 
         try:
             user: User = User.objects.get(telegram_id=query.from_user.id)
-            if query.data:
-                step, *data = map(int, query.data.split())
-                try:
-                    {
-                        CALLBACK.SELECT_THE_TEXT: select_the_text,
-
-                        CALLBACK.SELECT_SUBSCRIPTIONS_PAGE: select_subscriptions_page,
-
-                        CALLBACK.SELECT_COLLECTIONS_PAGE: select_collections_page,
-                        CALLBACK.SELECT_THE_COLLECTION: select_the_collection,
-                        CALLBACK.SELECT_THE_COLLECTION_PODCASTS_PAGE: select_the_collection_podcasts_page,
-
-                        CALLBACK.SELECT_CHANNELS_PAGE: select_channels_page,
-                        CALLBACK.SELECT_THE_CHANNEL: select_the_channel,
-                        CALLBACK.SELECT_THE_CHANNEL_PODCASTS_PAGE: select_the_channel_podcasts_page,
-
-                        CALLBACK.SELECT_PODCASTS_PAGE: select_podcasts_page,
-                        CALLBACK.SELECT_THE_PODCAST: select_the_podcast,
-                        CALLBACK.CHANGE_THE_PODCAST_SUBSCRIPTION_STATE: change_the_podcast_subscription_state,
-                        CALLBACK.CHANGE_THE_PODCAST_SUBSCRIPTION_NOTIFICATION_STATE: change_the_podcast_subscription_notification_state,
-                        CALLBACK.SELECT_THE_PODCAST_EPISODES_PAGE: select_the_podcast_episodes_page,
-
-                        CALLBACK.SELECT_THE_EPISODE: select_the_episode,
-                        CALLBACK.OPEN_THE_TIMELAPSE: open_the_timelapse,
-                        CALLBACK.CLOSE_THE_TIMELAPSE: close_the_timelapse,
-                        CALLBACK.LIKE_IT: like_it,
-                        CALLBACK.UNLIKE_IT: unlike_it,
-                        CALLBACK.DELETE_THE_EPISODE: delete_the_episode,
-
-                        CALLBACK.SELECT_THE_SEARCH_QUERY_EPISODES_PAGE: select_the_search_query_episodes_page,
-
-                        CALLBACK.DELETE_THE_MESSAGE: delete_the_message,
-                    }[step](user, query, query.message, *data)
-                    bot.answer_callback_query(query.id)
-                except ApiException as e:
-                    Error.objects.create(
-                        user=user,
-                        type=ERROR.TYPE.API_EXCEPTION_ON_CALLBACK_QUERY_HANDLER,
-                        text=traceback.format_exc() or sys.exc_info()[2] or e.args or "Log does not exist"
-                    )
-                    bot.answer_callback_query(query.id)
-                except Exception as e:
-                    Error.objects.create(
-                        user=user,
-                        type=ERROR.TYPE.EXCEPTION_ON_CALLBACK_QUERY_HANDLER,
-                        text=traceback.format_exc() or sys.exc_info()[2] or e.args or "Log does not exist"
-                    )
-                    bot.answer_callback_query(query.id)
         except User.DoesNotExist:
-            pass
+            full_name = helpers.extract_full_name(query.from_user)
+            user = User.objects.create(
+                telegram_id=query.from_user.id,
+                full_name=full_name,
+                username=query.from_user.username,
+                text=Text.objects.filter(is_active=True).first(),
+            )
+        if query.data:
+            step, *data = map(int, query.data.split())
+            try:
+                {
+                    CALLBACK.SELECT_THE_TEXT: select_the_text,
+                    CALLBACK.CHANGE_THE_CATEGORY_INTERESTED_STATE: change_the_category_interested_state,
+
+                    CALLBACK.SELECT_TOP_EPISODES_PAGE: select_top_episodes_page,
+                    CALLBACK.SELECT_NEWEST_EPISODES_PAGE: select_newest_episodes_page,
+                    CALLBACK.SELECT_SUBSCRIPTIONS_PAGE: select_subscriptions_page,
+
+                    CALLBACK.SELECT_COLLECTIONS_PAGE: select_collections_page,
+                    CALLBACK.SELECT_THE_COLLECTION: select_the_collection,
+                    CALLBACK.SELECT_THE_COLLECTION_PODCASTS_PAGE: select_the_collection_podcasts_page,
+
+                    CALLBACK.SELECT_CHANNELS_PAGE: select_channels_page,
+                    CALLBACK.SELECT_THE_CHANNEL: select_the_channel,
+                    CALLBACK.SELECT_THE_CHANNEL_PODCASTS_PAGE: select_the_channel_podcasts_page,
+
+                    CALLBACK.SELECT_PODCASTS_PAGE: select_podcasts_page,
+                    CALLBACK.SELECT_THE_PODCAST: select_the_podcast,
+                    CALLBACK.CHANGE_THE_PODCAST_SUBSCRIPTION_STATE: change_the_podcast_subscription_state,
+                    CALLBACK.CHANGE_THE_PODCAST_SUBSCRIPTION_NOTIFICATION_STATE: change_the_podcast_subscription_notification_state,
+                    CALLBACK.DOWNLOAD_ALL_EPISODES_OF_THE_PODCAST: download_all_episodes_of_the_podcast,
+                    CALLBACK.SELECT_THE_PODCAST_EPISODES_PAGE: select_the_podcast_episodes_page,
+
+                    CALLBACK.SELECT_THE_EPISODE: select_the_episode,
+                    CALLBACK.OPEN_THE_TIMELAPSE: open_the_timelapse,
+                    CALLBACK.CLOSE_THE_TIMELAPSE: close_the_timelapse,
+                    CALLBACK.CHANGE_THE_EPISODE_LIKE_STATE: change_the_episode_like_state,
+                    CALLBACK.DELETE_THE_EPISODE: delete_the_episode,
+
+                    CALLBACK.SELECT_THE_SEARCH_QUERY_EPISODES_PAGE: select_the_search_query_episodes_page,
+
+                    CALLBACK.DELETE_THE_MESSAGE: delete_the_message,
+                }[step](user, query, query.message, *data)
+                bot.answer_callback_query(query.id)
+            except ApiException as e:
+                Error.objects.create(
+                    user=user,
+                    type=ERROR.TYPE.API_EXCEPTION_ON_CALLBACK_QUERY_HANDLER,
+                    text=traceback.format_exc() or sys.exc_info()[2] or e.args or "Log does not exist"
+                )
+                bot.answer_callback_query(query.id)
+            except Exception as e:
+                Error.objects.create(
+                    user=user,
+                    type=ERROR.TYPE.EXCEPTION_ON_CALLBACK_QUERY_HANDLER,
+                    text=traceback.format_exc() or sys.exc_info()[2] or e.args or "Log does not exist"
+                )
+                bot.answer_callback_query(query.id)

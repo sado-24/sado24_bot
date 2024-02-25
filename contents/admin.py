@@ -70,6 +70,11 @@ class PodcastAdmin(AbstractModelAdmin):
         'categories',
     ]
 
+    def lookup_allowed(self, lookup, value, request=None):
+        if lookup in ['channel__pk__exact']:
+            return True
+        return super().lookup_allowed(lookup, value, request)
+
 
 @admin.register(models.Episode)
 class EpisodeAdmin(AbstractModelAdmin):
@@ -110,6 +115,11 @@ class EpisodeAdmin(AbstractModelAdmin):
     actions = [
         'notifying_all_subscribed_users_about_new_episode'
     ]
+
+    def lookup_allowed(self, lookup, value, request=None):
+        if lookup in ['podcast__pk__exact']:
+            return True
+        return super().lookup_allowed(lookup, value, request)
 
     @admin.action(description="Notifying all subscribed users about new episode.")
     def notifying_all_subscribed_users_about_new_episode(self, request, queryset):

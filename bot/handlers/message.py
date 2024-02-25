@@ -3,6 +3,7 @@ import sys
 from threading import Thread
 
 from django.utils.html import strip_tags
+from django.db.models import Count, Q
 
 from telebot import types, TeleBot
 from telebot.handler_backends import ContinueHandling
@@ -23,7 +24,7 @@ def initializer_message_handlers(bot: TeleBot):
             def wrapper(message: types.Message):
                 try:
                     user: User = User.objects.get(telegram_id=message.from_user.id)
-                    if user:
+                    if user and user.text:
                         if not user.is_banned:
                             try:
                                 if helpers.get_constant(CONSTANT.IS_BOT_WORKING):
@@ -58,6 +59,8 @@ def initializer_message_handlers(bot: TeleBot):
                                 user.text.you_are_banned,
                                 reply_markup=keyboards.reply_keyboard_remove,
                             )
+                    else:
+                        raise User.DoesNotExist()
                 except User.DoesNotExist:
                     start_handler(message)
 
@@ -84,7 +87,7 @@ def initializer_message_handlers(bot: TeleBot):
                 user.is_active = True
                 user.save()
         except User.DoesNotExist:
-            full_name = helpers.extract_full_name(message)
+            full_name = helpers.extract_full_name(message.from_user)
             user: User = User.objects.create(
                 telegram_id=message.from_user.id,
                 full_name=full_name,
@@ -107,22 +110,59 @@ def initializer_message_handlers(bot: TeleBot):
                 reply_markup=keyboards.get_texts_inline_keyboard(texts),
             )
         else:
+            _ = message.text.split()
+            if len(_) > 1:
+                episode_id = _[1]
+                if episode_id.isdigit():
+                    try:
+                        episode = Episode.objects.get(id=episode_id)
+                        bot.send_audio(
+                            message.chat.id,
+                            episode.file_id,
+                            "<b>{name}</b>\n\n<i>{description}</i>".format(
+                                name=episode.name,
+                                description=episode.description,
+                            ),
+                            reply_markup=keyboards.get_the_episode_inline_keyboard(
+                                user,
+                                episode,
+                                False,
+                                episode.liked_users.filter(id=user.id).exists(),
+                            ),
+                        )
+                        episode.total_listens_count += 1
+                        episode.save()
+                        return
+                    except Episode.DoesNotExist:
+                        pass
             go_to_main(message, user)
 
     @bot.message_handler(commands=['top'])
     @auth(STEP.MAIN)
     def top_handler(message: types.Message, user: User):
-        episodes = Episode.objects.filter(is_active=True)[:10]
+        episodes = Episode.objects.filter(is_active=True).annotate(
+            matched_interested_categories_count=Count(
+                'podcast__categories',
+                filter=Q(podcast__categories__in=user.interested_categories.all()),
+                distinct=True,
+            ),
+        ).order_by('-matched_interested_categories_count', '-total_listens_count', '-total_likes_count', '-id')
         if episodes:
+            total = episodes.count()
+            start = 1
+            end = 10 if total > 10 else total
             bot.send_message(
                 message.chat.id,
                 user.text.top_text.format(
+                    total=total,
+                    start=start,
+                    end=end,
                     episodes='\n'.join([
-                        f"{sequence}. {episode.name} <i>{episode.total_listens_count:,}</i>"
-                        for sequence, episode in enumerate(episodes, 1)
+                        f"{sequence}. {episode.name} <i>{episode.total_listens_count:,} 📥</i>"
+                        for sequence, episode in enumerate(episodes[start - 1: end], 1)
                     ])
                 ),
-                reply_markup=keyboards.get_top_episodes_inline_keyboard(episodes),
+                reply_markup=keyboards.get_top_episodes_inline_keyboard(user, episodes, start, end),
             )
         else:
             bot.send_message(
@@ -135,17 +175,23 @@ def initializer_message_handlers(bot: TeleBot):
     @bot.message_handler(commands=['newest'])
     @auth(STEP.MAIN)
     def newest_handler(message: types.Message, user: User):
-        episodes = Episode.objects.filter(is_active=True).order_by('-added_time')[:10]
+        episodes = Episode.objects.filter(is_active=True).order_by('-added_time')
         if episodes:
+            total = episodes.count()
+            start = 1
+            end = 10 if total > 10 else total
             bot.send_message(
                 message.chat.id,
                 user.text.newest_text.format(
+                    total=total,
+                    start=start,
+                    end=end,
                     episodes='\n'.join([
-                        f"{sequence}. {episode.name} <i>{episode.total_listens_count:,}</i>"
-                        for sequence, episode in enumerate(episodes, 1)
+                        f"{sequence}. {episode.name} <i>{episode.total_listens_count:,} 📥</i>"
+                        for sequence, episode in enumerate(episodes[start - 1: end], 1)
                     ])
                 ),
-                reply_markup=keyboards.get_newest_episodes_inline_keyboard(episodes),
+                reply_markup=keyboards.get_newest_episodes_inline_keyboard(user, episodes, start, end),
             )
         else:
             bot.send_message(
@@ -242,7 +288,13 @@ def initializer_message_handlers(bot: TeleBot):
     @bot.message_handler(commands=['podcasts'])
     @auth(STEP.MAIN)
     def podcasts_handler(message: types.Message, user: User):
-        podcasts = Podcast.objects.filter(is_active=True)
+        podcasts = Podcast.objects.filter(is_active=True).annotate(
+            matched_interested_categories_count=Count(
+                'categories',
+                filter=Q(categories__in=user.interested_categories.all()),
+                distinct=True,
+            ),
+        ).order_by('-matched_interested_categories_count')
         if podcasts:
             total = podcasts.count()
             end = 10 if total > 10 else total
@@ -267,17 +319,26 @@ def initializer_message_handlers(bot: TeleBot):
             )
             go_to_main(message, user)
 
+    @bot.message_handler(commands=['interests'])
+    @auth(STEP.MAIN)
+    def interests_handler(message: types.Message, user: User):
+        bot.send_message(
+            message.chat.id,
+            user.text.selecting_interested_categories,
+            reply_markup=keyboards.get_interested_categories_inline_keyboard(
+                user,
+                list(user.interested_categories.values_list('id', flat=True)),
+            ),
+        )
+
     @bot.message_handler(commands=['language'])
     @auth(STEP.MAIN)
     def language_handler(message: types.Message, user: User):
-        if user.text:
-            bot.send_message(
-                message.chat.id,
-                user.text.selecting_language_text,
-                reply_markup=keyboards.get_texts_inline_keyboard(Text.objects.filter(is_active=True)),
-            )
-        else:
-            start_handler(message)
+        bot.send_message(
+            message.chat.id,
+            user.text.selecting_language_text,
+            reply_markup=keyboards.get_texts_inline_keyboard(Text.objects.filter(is_active=True)),
+        )
 
     @bot.message_handler(commands=['developer'])
     @auth(STEP.MAIN)
@@ -337,11 +398,11 @@ def initializer_message_handlers(bot: TeleBot):
                     start=start,
                     end=end,
                     episodes='\n'.join([
-                        f"{sequence}. {episode.name} <i>{episode.total_listens_count:,}</i>"
+                        f"{sequence}. {episode.name} <i>{episode.total_listens_count:,} 📥</i>"
                         for sequence, episode in enumerate(episodes[:10], 1)
                     ])
                 ),
-                reply_markup=keyboards.get_search_query_episodes_inline_markup(
+                reply_markup=keyboards.get_search_query_episodes_inline_keyboard(
                     user,
                     search_query,
                     episodes,
@@ -371,10 +432,26 @@ def initializer_message_handlers(bot: TeleBot):
     @auth()
     def audio_handler(message: types.Message, user: User):
         if user.is_admin or user.is_moderator:
-            bot.reply_to(
-                message,
-                f"File ID: <code>{message.audio.file_id}</code>\n\nDuration: <code>{message.audio.duration}</code>"
-            )
+            if not message.audio.title:
+                bot.send_message(
+                    message.chat.id,
+                    "<b>This audio file is not valid.</b>\n\nPlease enter audio file <b>with title</b>.",
+                )
+            elif not message.audio.performer:
+                bot.send_message(
+                    message.chat.id,
+                    "<b>This audio file is not valid.</b>\n\nPlease enter audio file <b>with performer</b>.",
+                )
+            else:
+                bot.reply_to(
+                    message,
+                    "Title: <code>{title}</code>\nPerformer: <code>{performer}</code>\n\nFile ID: <code>{file_id}</code>\n\nDuration: <code>{duration}</code>".format(
+                        title=message.audio.title,
+                        performer=message.audio.performer,
+                        file_id=message.audio.file_id,
+                        duration=message.audio.duration,
+                    )
+                )
 
     @bot.message_handler(content_types=['voice'])
     @auth(STEP.GETTING_POST_MESSAGE)

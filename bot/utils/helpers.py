@@ -28,8 +28,8 @@ def upload_file(bot, file_id):
     return f"https://telegra.ph{file_path}"
 
 
-def extract_full_name(message: types.Message):
-    return f"{message.from_user.first_name}{f' {message.from_user.last_name}' if message.from_user.last_name else ''}"
+def extract_full_name(from_user: types.User):
+    return f"{from_user.first_name}{f' {from_user.last_name}' if from_user.last_name else ''}"
 
 
 def convert_to_latin(text: str):
@@ -63,11 +63,12 @@ def get_available_commands(user: User) -> List[Command]:
         language_to_commands[user.text.code] = [
             Command('start', user.text.start_command_description),
             Command('top', user.text.top_command_description),
-            Command('newest', user.text.newest_command_description),
+            # Command('newest', user.text.newest_command_description),
             Command('subscriptions', user.text.subscriptions_command_description),
-            Command('collections', user.text.collections_command_description),
-            Command('channels', user.text.channels_command_description),
+            # Command('collections', user.text.collections_command_description),
+            # Command('channels', user.text.channels_command_description),
             Command('podcasts', user.text.podcasts_command_description),
+            Command('interests', user.text.interests_command_description),
             Command('language', user.text.language_command_description),
         ]
     return language_to_commands.get(user.text.code)
@@ -93,7 +94,7 @@ def is_birth_date(raw: str):
 
 
 def sending_new_episode_notification_to_subscribers(bot, episode):
-    inline_markup = keyboards.new_episode_notification_inline_markup(episode)
+    inline_markup = keyboards.new_episode_notification_inline_keyboard(episode)
     for subscription in episode.podcast.subscriptions.filter(
         user__is_active=True,
         is_notification_enabled=True,

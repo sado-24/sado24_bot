@@ -49,6 +49,14 @@ class UserAdmin(AbstractModelAdmin):
     autocomplete_fields = [
         'text',
     ]
+    filter_horizontal = [
+        'interested_categories',
+    ]
+
+    def lookup_allowed(self, lookup, value, request=None):
+        if lookup in ['text__pk__exact']:
+            return True
+        return super().lookup_allowed(lookup, value, request)
 
 
 @admin.register(models.Error)
@@ -70,3 +78,8 @@ class ErrorAdmin(AbstractModelAdmin):
     autocomplete_fields = [
         'user',
     ]
+
+    def lookup_allowed(self, lookup, value, request=None):
+        if lookup in ['user__pk__exact']:
+            return True
+        return super().lookup_allowed(lookup, value, request)

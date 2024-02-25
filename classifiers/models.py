@@ -17,6 +17,9 @@ class Text(AbstractModel):
     selecting_language_text = models.TextField(
         default="Kerakli tilni tanlang",
     )
+    selecting_interested_categories = models.TextField(
+        default="Qaysi sohalarga qiziqasiz ?\n\n<i>Quyidagilardan sizni qiziqtirganlarini tanlang.</i>",
+    )
     hello_text = models.TextField(
         default="Assalom aleykum <b>{full_name}</b>.",
     )
@@ -75,10 +78,10 @@ class Text(AbstractModel):
     )
 
     top_text = models.TextField(
-        default="<b>Top 10</b>\n\n{episodes}",
+        default="<b>Top {start}-{end} {total}ta dan</b>\n\n{episodes}",
     )
     newest_text = models.TextField(
-        default="<b>Eng yangi 10 ta epizod</b>\n\n{episodes}",
+        default="<b>Eng yangi {start}-{end} {total}ta dan</b>\n\n{episodes}",
     )
     subscriptions_text = models.TextField(
         default="<b>Obunalar {start}-{end} {total}dan</b>\n\n{subscriptions}",
@@ -99,13 +102,32 @@ class Text(AbstractModel):
         default="<b>Podkastlar {start}-{end} {total}dan</b>\n\n{podcasts}",
     )
     the_podcast_text = models.TextField(
-        default="<a href='{image}'>&#8203;&#8203;</a><b>{name}</b>\n\n<i>{description}</i>\n\n{episodes}",
+        default="<a href='{image}'>&#8203;&#8203;</a><b>{name}</b>\n<u>{channel}</u>\n\n<i>{description}</i>\n\n{episodes}",
     )
     search_result_text = models.TextField(
         default="<b>Natijalar {start}-{end} {total}dan</b>\n\n{episodes}"
     )
     search_result_is_empty = models.TextField(
         default="Sizning so'rovingiz bo'yicha bironta ham epizod topilmadi, iltimos so'rov matnini o'zgartirib qayta urinib ko'ring."
+    )
+
+    you_have_subscribed = models.TextField(
+        default="✅ Obuna bo'ldingiz."
+    )
+    you_have_unsubscribed = models.TextField(
+        default="☑️ Obunani bekor qildingiz."
+    )
+    you_have_enabled_notification = models.TextField(
+        default="🔔 Bildirishnomani yoqdingiz."
+    )
+    you_have_disabled_notification = models.TextField(
+        default="🔕 Bildirishnomani o'chirdingiz."
+    )
+    you_liked_the_episode = models.TextField(
+        default="❤️ Siz ushbu epizodni yoqtirishingizni belgiladingiz.",
+    )
+    you_unliked_the_episode = models.TextField(
+        default="💔 Siz ushbu epizodni yoqtirishingizni bekor qildingiz.",
     )
 
     you_already_in_the_first_page = models.TextField(
@@ -136,25 +158,32 @@ class Text(AbstractModel):
     podcasts_command_description = models.TextField(
         default="Mavjud podkastlar",
     )
+    interests_command_description = models.TextField(
+        default="Qiziqishlarni tanlash.",
+    )
     language_command_description = models.TextField(
         default="Tilni o'zgartirish.",
     )
 
-    subscribe_to_the_podcast = models.CharField(
+    subscribed_to_the_podcast = models.CharField(
         max_length=63,
-        default="➕ Obuna bo'lish",
+        default="✅ Obuna",
     )
-    unsubscribe_from_the_podcast = models.CharField(
+    unsubscribed_from_the_podcast = models.CharField(
         max_length=63,
-        default="➖ Obunani bekor qilish",
+        default="☑️ Obuna",
     )
-    enable_notification = models.CharField(
+    notification_is_enabled = models.CharField(
         max_length=63,
-        default="🔔 Bildirishnomani yoqish",
+        default="🔔",
     )
-    disable_notification = models.CharField(
+    notification_is_disabled = models.CharField(
         max_length=63,
-        default="🔕 Bildirishnomani o'chirish",
+        default="🔕",
+    )
+    download_all_episodes_of_the_podcast = models.CharField(
+        max_length=63,
+        default="📥",
     )
     previous = models.CharField(
         max_length=63,
@@ -170,7 +199,7 @@ class Text(AbstractModel):
     )
     the_podcast = models.CharField(
         max_length=63,
-        default="🎙 Podkast",
+        default="🎙 Epizodlar",
     )
     opening_the_timelapse = models.CharField(
         max_length=63,
@@ -180,17 +209,25 @@ class Text(AbstractModel):
         max_length=63,
         default="📁 Boblarni yopish"
     )
-    like_it = models.CharField(
+    liked = models.CharField(
         max_length=63,
         default="❤️",
     )
-    unlike_it = models.CharField(
+    unliked = models.CharField(
         max_length=63,
         default="💔",
     )
     delete_the_episode = models.CharField(
         max_length=63,
         default="❌",
+    )
+    confirm = models.CharField(
+        max_length=63,
+        default="Tasdiqlash"
+    )
+    go_to_the_bot = models.CharField(
+        max_length=63,
+        default="🤖 Botda to'liq ko'rish",
     )
 
     back = models.CharField(
@@ -211,15 +248,53 @@ class Text(AbstractModel):
 
 class Category(AbstractModel):
     sequence = models.IntegerField()
-    name = models.CharField(
+    name_uz = models.CharField(
+        max_length=31,
+    )
+    name_ru = models.CharField(
+        max_length=31,
+    )
+    name_en = models.CharField(
+        max_length=31,
+    )
+    name_tr = models.CharField(
+        max_length=31,
+    )
+    name_kz = models.CharField(
+        max_length=31,
+    )
+    name_kg = models.CharField(
+        max_length=31,
+    )
+    name_tj = models.CharField(
+        max_length=31,
+    )
+    name_tm = models.CharField(
         max_length=31,
     )
     is_active = models.BooleanField(
         default=False,
     )
 
+    def name(self, language: str):
+        if language.endswith('ru'):
+            return self.name_ru
+        elif language.endswith('en'):
+            return self.name_en
+        elif language.endswith('tr'):
+            return self.name_tr
+        elif language.endswith('kz'):
+            return self.name_kz
+        elif language.endswith('kg'):
+            return self.name_kg
+        elif language.endswith('tj'):
+            return self.name_tj
+        elif language.endswith('tm'):
+            return self.name_tm
+        return self.name_uz
+
     def __str__(self):
-        return self.name
+        return self.name_uz
 
     class Meta:
         ordering = ['sequence', ]

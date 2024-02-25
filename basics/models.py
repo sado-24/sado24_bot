@@ -28,6 +28,11 @@ class User(AbstractModel):
         null=True,
         blank=True,
     )
+    interested_categories = models.ManyToManyField(
+        'classifiers.Category',
+        related_name='interested_users',
+        blank=True,
+    )
     is_moderator = models.BooleanField(
         default=False,
     )

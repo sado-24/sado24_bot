@@ -34,7 +34,14 @@ class CategoryAdmin(AbstractModelAdmin):
     list_display = [
         'id',
         'sequence',
-        'name',
+        'name_uz',
+        'name_ru',
+        'name_en',
+        'name_tr',
+        'name_kz',
+        'name_kg',
+        'name_tj',
+        'name_tm',
         'is_active',
     ]
     list_filter = [
@@ -42,11 +49,17 @@ class CategoryAdmin(AbstractModelAdmin):
     ]
     search_fields = [
         'id',
-        'name',
+        'name_uz',
+        'name_ru',
+        'name_en',
+        'name_tr',
+        'name_kz',
+        'name_kg',
+        'name_tj',
+        'name_tm',
     ]
     list_editable = [
         'sequence',
-        'name',
         'is_active',
     ]
 
