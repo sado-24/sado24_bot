@@ -1,4 +1,4 @@
-from django.contrib.postgres.search import SearchVector, SearchQuery, SearchRank
+from django.contrib.postgres.search import SearchVector, SearchQuery
 from django.db import models
 
 from configurations.abstracts import AbstractModel
@@ -113,12 +113,10 @@ class Episode(AbstractModel):
             'podcast__channel__name',
             weight='D',
         )
-        query = SearchQuery(search_query.latin_query, search_type='phrase') | SearchQuery(search_query.cyrillic_query, search_type='phrase')
+        query = SearchQuery(search_query.latin_query) | SearchQuery(search_query.cyrillic_query)
         return cls.objects.filter(is_active=True).annotate(
             search=vector,
-            rank=SearchRank(vector, query),
         ).filter(
-            rank__gt=0,
             search__icontains=query,
         ).order_by('-rank')
 
