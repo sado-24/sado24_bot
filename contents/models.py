@@ -1,4 +1,3 @@
-from django.contrib.postgres.search import SearchVector, SearchQuery
 from django.db import models
 from django.db.models import Q
 
@@ -104,21 +103,21 @@ class Episode(AbstractModel):
 
     @classmethod
     def filter_by_search_query(cls, search_query):
-        vector = SearchVector(
-            'name',
-            weight='B',
-        ) + SearchVector(
-            'podcast__name',
-            weight='C',
-        ) + SearchVector(
-            'podcast__channel__name',
-            weight='D',
-        )
-        query = SearchQuery(search_query.latin_query) | SearchQuery(search_query.cyrillic_query)
-        return cls.objects.filter(is_active=True).annotate(
-            search=vector,
-        ).filter(
-            search__icontains=query,
+        return cls.objects.filter(
+            Q(
+                name__icontains=search_query.latin_query
+            ) | Q(
+                name__icontains=search_query.cyrillic_query
+            ) | Q(
+                podcast__name__icontains=search_query.latin_query
+            ) | Q(
+                podcast__name__icontains=search_query.cyrillic_query
+            ) | Q(
+                podcast__channel__name__icontains=search_query.latin_query
+            ) | Q(
+                podcast__channel__name__icontains=search_query.cyrillic_query
+            ),
+            is_active=True,
         )
 
     def __str__(self):
