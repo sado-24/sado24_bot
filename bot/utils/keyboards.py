@@ -237,7 +237,7 @@ def get_the_podcast_episodes_inline_keyboard(user: User, podcast, subscription, 
         types.InlineKeyboardButton(
             str(sequence),
             callback_data=f"{CALLBACK.SELECT_THE_EPISODE} {episode.id}"
-        ) for sequence, episode in enumerate(podcast.episodes.filter(is_active=True)[start - 1: end], 1)
+        ) for sequence, episode in enumerate(podcast.episodes.filter(is_active=True).order_by('-id')[start - 1: end], 1)
     ])
     inline_keyboard.add(
         types.InlineKeyboardButton(
