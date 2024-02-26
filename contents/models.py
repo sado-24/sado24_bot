@@ -115,9 +115,11 @@ class Episode(AbstractModel):
         )
         query = SearchQuery(search_query.latin_query, search_type='phrase') | SearchQuery(search_query.cyrillic_query, search_type='phrase')
         return cls.objects.filter(is_active=True).annotate(
+            search=vector,
             rank=SearchRank(vector, query),
         ).filter(
             rank__gt=0,
+            search__icontains=query,
         ).order_by('-rank')
 
     def __str__(self):
