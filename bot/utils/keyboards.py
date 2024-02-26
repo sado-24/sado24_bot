@@ -55,12 +55,12 @@ def get_interested_categories_inline_keyboard(user: User, interested_categories:
     ])
     inline_keyboard.add(
         types.InlineKeyboardButton(
-            user.text.confirm,
-            callback_data=f"{CALLBACK.DELETE_THE_MESSAGE} 0"
-        ),
-        types.InlineKeyboardButton(
             user.text.delete_the_message,
             callback_data=f"{CALLBACK.DELETE_THE_MESSAGE}"
+        ),
+        types.InlineKeyboardButton(
+            user.text.confirm,
+            callback_data=f"{CALLBACK.DELETE_THE_MESSAGE} 0"
         )
     )
     return inline_keyboard
