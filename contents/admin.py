@@ -109,7 +109,11 @@ class EpisodeAdmin(AbstractModelAdmin):
     autocomplete_fields = [
         'podcast',
     ]
-    filter_horizontal = [
+    readonly_fields = [
+        'total_listens_count',
+        'total_likes_count',
+    ]
+    exclude = [
         'liked_users',
     ]
     actions = [
