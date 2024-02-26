@@ -25,3 +25,5 @@ sqlparse
 transliterate
 uritemplate
 urllib3
+gunicorn
+whitenoise
