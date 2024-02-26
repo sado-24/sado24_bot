@@ -27,5 +27,3 @@ uritemplate
 urllib3
 gunicorn
 whitenoise
-config
-setuptools
