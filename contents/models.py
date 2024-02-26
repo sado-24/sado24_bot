@@ -118,7 +118,7 @@ class Episode(AbstractModel):
             search=vector,
         ).filter(
             search__icontains=query,
-        ).order_by('-rank')
+        )
 
     def __str__(self):
         return f"{self.name} [{self.podcast}]"
