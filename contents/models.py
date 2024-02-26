@@ -1,3 +1,4 @@
+from django.contrib.postgres.search import SearchVector, SearchQuery
 from django.db import models
 from django.db.models import Q
 
@@ -5,7 +6,7 @@ from configurations.abstracts import AbstractModel
 
 
 class Channel(AbstractModel):
-    name = models.CharField(
+    name = models.TextField(
         max_length=127,
     )
     image = models.URLField(
@@ -28,7 +29,7 @@ class Podcast(AbstractModel):
         on_delete=models.CASCADE,
         related_name='podcasts',
     )
-    name = models.CharField(
+    name = models.TextField(
         max_length=255,
     )
     description = models.TextField(
@@ -59,7 +60,7 @@ class Episode(AbstractModel):
         on_delete=models.CASCADE,
         related_name='episodes',
     )
-    name = models.CharField(
+    name = models.TextField(
         max_length=127,
     )
     description = models.TextField(
@@ -103,21 +104,21 @@ class Episode(AbstractModel):
 
     @classmethod
     def filter_by_search_query(cls, search_query):
-        return cls.objects.filter(
-            Q(
-                name__icontains=search_query.latin_query
-            ) | Q(
-                name__icontains=search_query.cyrillic_query
-            ) | Q(
-                podcast__name__icontains=search_query.latin_query
-            ) | Q(
-                podcast__name__icontains=search_query.cyrillic_query
-            ) | Q(
-                podcast__channel__name__icontains=search_query.latin_query
-            ) | Q(
-                podcast__channel__name__icontains=search_query.cyrillic_query
-            ),
-            is_active=True,
+        vector = SearchVector(
+            'name',
+            weight='B',
+        ) + SearchVector(
+            'podcast__name',
+            weight='C',
+        ) + SearchVector(
+            'podcast__channel__name',
+            weight='D',
+        )
+        query = SearchQuery(search_query.latin_query) | SearchQuery(search_query.cyrillic_query)
+        return cls.objects.filter(is_active=True).annotate(
+            search=vector,
+        ).filter(
+            search__icontains=query,
         )
 
     def __str__(self):
