@@ -113,7 +113,7 @@ class Episode(AbstractModel):
             'podcast__channel__name',
             weight='D',
         )
-        query = SearchQuery(search_query.latin_query) | SearchQuery(search_query.cyrillic_query)
+        query = SearchQuery(search_query.latin_query, search_type='phrase') | SearchQuery(search_query.cyrillic_query, search_type='phrase')
         return cls.objects.filter(is_active=True).annotate(
             rank=SearchRank(vector, query),
         ).filter(

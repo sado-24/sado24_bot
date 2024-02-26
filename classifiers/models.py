@@ -223,7 +223,7 @@ class Text(AbstractModel):
     )
     confirm = models.CharField(
         max_length=63,
-        default="Tasdiqlash"
+        default="✅ Tasdiqlash"
     )
     go_to_the_bot = models.CharField(
         max_length=63,
