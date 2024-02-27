@@ -551,7 +551,7 @@ def initializer_callback_query_handlers(bot: TeleBot):
                         query.id,
                         user.text.you_already_in_the_first_page,
                     )
-                elif total <= page * 10:
+                elif total <= (page - 1) * 10:
                     bot.answer_callback_query(
                         query.id,
                         user.text.you_already_in_the_last_page,
