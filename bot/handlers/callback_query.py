@@ -110,7 +110,7 @@ def initializer_callback_query_handlers(bot: TeleBot):
                         start=start,
                         end=end,
                         episodes='\n'.join([
-                            f"{sequence}. {episode.name} <i>{episode.total_listens_count:,} 📥</i>"
+                            f"{sequence}. {episode.name} <b>(<i>{episode.total_listens_count:,} 📥</i>)</b>"
                             for sequence, episode in enumerate(episodes[start - 1:end], 1)
                         ])
                     ),
@@ -141,7 +141,7 @@ def initializer_callback_query_handlers(bot: TeleBot):
                         start=start,
                         end=end,
                         episodes='\n'.join([
-                            f"{sequence}. {episode.name} <i>{episode.total_listens_count:,} 📥</i>"
+                            f"{sequence}. {episode.name} <b>(<i>{episode.total_listens_count:,} 📥</i>)</b>"
                             for sequence, episode in enumerate(episodes[start - 1:end], 1)
                         ])
                     ),
@@ -431,7 +431,7 @@ def initializer_callback_query_handlers(bot: TeleBot):
                         end=end,
                         total=total,
                         episodes='\n'.join([
-                            f"{sequence}. {episode.name} <i>{episode.total_listens_count:,} 📥</i>"
+                            f"{sequence}. {episode.name} <b>(<i>{episode.total_listens_count:,} 📥</i>)</b>"
                             for sequence, episode in enumerate(episodes[start - 1:end], 1)
                         ])
                     ),
@@ -572,7 +572,7 @@ def initializer_callback_query_handlers(bot: TeleBot):
                             end=end,
                             total=total,
                             episodes='\n'.join([
-                                f"{sequence}. {episode.name} <i>{episode.total_listens_count:,} 📥</i>"
+                                f"{sequence}. {episode.name} <b>(<i>{episode.total_listens_count:,} 📥</i>)</b>"
                                 for sequence, episode in enumerate(episodes[start - 1:end], 1)
                             ])
                         ),
@@ -720,7 +720,7 @@ def initializer_callback_query_handlers(bot: TeleBot):
                             start=start,
                             end=end,
                             episodes='\n'.join([
-                                f"{sequence}. {episode.name} <i>{episode.total_listens_count:,} 📥</i>"
+                                f"{sequence}. {episode.name} <b>(<i>{episode.total_listens_count:,} 📥</i>)</b>"
                                 for sequence, episode in enumerate(episodes[start - 1:end], 1)
                             ])
                         ),
