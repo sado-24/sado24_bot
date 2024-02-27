@@ -102,7 +102,7 @@ class Text(AbstractModel):
         default="<b>Podkastlar {start}-{end} {total}dan</b>\n\n{podcasts}",
     )
     the_podcast_text = models.TextField(
-        default="<a href='{image}'>&#8203;&#8203;</a><b>{name}</b>\n<u>{channel}</u>\n\n<i>{description}</i>\n\n{episodes}",
+        default="<a href='{image}'>&#8203;&#8203;</a><b>{name}</b>\n<u>{channel}</u><i>{description}</i>\n\n<b>Epizodlar {start}-{end} {total}dan<b>\n\n{episodes}",
     )
     search_result_text = models.TextField(
         default="<b>Natijalar {start}-{end} {total}dan</b>\n\n{episodes}"

@@ -426,7 +426,10 @@ def initializer_callback_query_handlers(bot: TeleBot):
                         image='',
                         name=podcast.name,
                         channel=podcast.channel.name,
-                        description=podcast.description,
+                        description=f"\n\n{podcast.description}" if podcast.description else '',
+                        start=start,
+                        end=end,
+                        total=total,
                         episodes='\n'.join([
                             f"{sequence}. {episode.name} <i>{episode.total_listens_count:,} 📥</i>"
                             for sequence, episode in enumerate(episodes[start - 1:end], 1)
@@ -563,8 +566,11 @@ def initializer_callback_query_handlers(bot: TeleBot):
                         user.text.the_podcast_text.format(
                             image='',
                             name=podcast.name,
-                            description=podcast.description,
                             channel=podcast.channel,
+                            description=f"\n\n{podcast.description}" if podcast.description else '',
+                            start=start,
+                            end=end,
+                            total=total,
                             episodes='\n'.join([
                                 f"{sequence}. {episode.name} <i>{episode.total_listens_count:,} 📥</i>"
                                 for sequence, episode in enumerate(episodes[start - 1:end], 1)
