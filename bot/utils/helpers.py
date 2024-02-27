@@ -29,7 +29,7 @@ def upload_file(bot, file_id):
 
 
 def extract_full_name(from_user: types.User):
-    return f"{from_user.first_name}{f' {from_user.last_name}' if from_user.last_name else ''}"
+    return f"{from_user.first_name}{f' {from_user.last_name}' if from_user.last_name else ''}".replace('<', '').replace('>', '')
 
 
 def convert_to_latin(text: str):
