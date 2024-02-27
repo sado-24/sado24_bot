@@ -91,7 +91,7 @@ def initializer_callback_query_handlers(bot: TeleBot):
                 ),
             ).order_by('-matched_interested_categories_count', '-total_listens_count', '-total_likes_count', '-id')
             total = episodes.count()
-            if total <= page * 10:
+            if total <= (page - 1) * 10:
                 bot.answer_callback_query(
                     query.id,
                     user.text.you_already_in_the_last_page,
@@ -122,7 +122,7 @@ def initializer_callback_query_handlers(bot: TeleBot):
         def select_newest_episodes_page(user: User, query: types.CallbackQuery, message: types.Message, page: int):
             episodes = Episode.objects.filter(is_active=True).order_by('-added_time')
             total = episodes.count()
-            if total <= page * 10:
+            if total <= (page - 1) * 10:
                 bot.answer_callback_query(
                     query.id,
                     user.text.you_already_in_the_last_page,
@@ -153,7 +153,7 @@ def initializer_callback_query_handlers(bot: TeleBot):
         def select_subscriptions_page(user: User, query: types.CallbackQuery, message: types.Message, page: int):
             subscriptions = user.subscriptions.filter(podcast__is_active=True)
             total = subscriptions.count()
-            if total <= page * 10:
+            if total <= (page - 1) * 10:
                 bot.answer_callback_query(
                     query.id,
                     user.text.you_already_in_the_last_page,
@@ -189,7 +189,7 @@ def initializer_callback_query_handlers(bot: TeleBot):
                     query.id,
                     user.text.you_already_in_the_first_page,
                 )
-            elif total <= page * 10:
+            elif total <= (page - 1) * 10:
                 bot.answer_callback_query(
                     query.id,
                     user.text.you_already_in_the_last_page,
@@ -247,7 +247,7 @@ def initializer_callback_query_handlers(bot: TeleBot):
                         query.id,
                         user.text.you_already_in_the_first_page,
                     )
-                elif total <= page * 10:
+                elif total <= (page - 1) * 10:
                     bot.answer_callback_query(
                         query.id,
                         user.text.you_already_in_the_last_page,
@@ -289,7 +289,7 @@ def initializer_callback_query_handlers(bot: TeleBot):
                     query.id,
                     user.text.you_already_in_the_first_page,
                 )
-            elif total <= page * 10:
+            elif total <= (page - 1) * 10:
                 bot.answer_callback_query(
                     query.id,
                     user.text.you_already_in_the_last_page,
@@ -347,7 +347,7 @@ def initializer_callback_query_handlers(bot: TeleBot):
                         query.id,
                         user.text.you_already_in_the_first_page,
                     )
-                elif total <= page * 10:
+                elif total <= (page - 1) * 10:
                     bot.answer_callback_query(
                         query.id,
                         user.text.you_already_in_the_last_page,
@@ -389,7 +389,7 @@ def initializer_callback_query_handlers(bot: TeleBot):
                     query.id,
                     user.text.you_already_in_the_first_page,
                 )
-            elif total <= page * 10:
+            elif total <= (page - 1) * 10:
                 bot.answer_callback_query(
                     query.id,
                     user.text.you_already_in_the_last_page,
@@ -700,7 +700,7 @@ def initializer_callback_query_handlers(bot: TeleBot):
                         query.id,
                         user.text.you_already_in_the_first_page,
                     )
-                elif total <= page * 10:
+                elif total <= (page - 1) * 10:
                     bot.answer_callback_query(
                         query.id,
                         user.text.you_already_in_the_last_page,
