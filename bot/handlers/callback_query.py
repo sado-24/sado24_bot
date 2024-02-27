@@ -564,6 +564,7 @@ def initializer_callback_query_handlers(bot: TeleBot):
                             image='',
                             name=podcast.name,
                             description=podcast.description,
+                            channel=podcast.channel,
                             episodes='\n'.join([
                                 f"{sequence}. {episode.name} <i>{episode.total_listens_count:,} 📥</i>"
                                 for sequence, episode in enumerate(episodes[start - 1:end], 1)
